@@ -1,16 +1,11 @@
 import React, { Component } from "react";
-import logo from "./logo.svg";
 import album from "./album.svg";
 import "./App.css";
 import axios from "axios";
 import Modal from "react-modal";
+import {Loader} from './Loader'
 //import debounce from "lodash/debounce";
 
-const getArtist = input => {
-  return axios.get(
-    `http://www.theaudiodb.com/api/v1/json/1/search.php?s=${input}`
-  );
-};
 
 class App extends Component {
   state = {
@@ -24,31 +19,40 @@ class App extends Component {
     },
     display: "",
     modalIsOpen: false,
-    paginatedAlbum: []
+    paginatedAlbum: [],
+    loader: false
   };
 
   handleChange = e => {
     let artistName = e.target.value;
-    getArtist(artistName).then(response => {
-      this.setState({ artist: response.data.artists, display: "artist" });
-    });
+    this.setState({
+      loader: true
+    },() => axios.get(`http://www.theaudiodb.com/api/v1/json/1/search.php?s=${artistName}`)
+    .then(response => {
+      this.setState({ artist: response.data.artists, display: "artist",loader: false });
+    }))
   };
 
   handleAlbum = (id, artist) => {
-    axios
+    this.setState({
+      loader: true
+    },() => axios
       .get(`http://www.theaudiodb.com/api/v1/json/1/album.php?i=${id}`)
       .then(response => {
         this.setState(prevState => ({
           albums: response.data.album,
           display: "album",
           selected: { ...prevState.selected, artist: artist },
-          paginatedAlbum: response.data.album.slice(0, 6)
+          paginatedAlbum: response.data.album.slice(0, 6),
+          loader: false
         }));
-      });
+      }))
   };
 
   handleTrack = (id, album, release) => {
-    axios
+     this.setState({
+      loader: true
+    },() => axios
       .get(`http://www.theaudiodb.com/api/v1/json/1/track.php?m=${id}`)
       .then(response => {
         this.setState(prevState => ({
@@ -60,9 +64,10 @@ class App extends Component {
             album: album,
             released: release
           },
-          paginatedTrack: response.data.track.slice(0, 6)
+          paginatedTrack: response.data.track.slice(0, 6),
+          loader: false
         }));
-      });
+      }));
   };
 
   toggleModal = () => {
@@ -83,41 +88,47 @@ class App extends Component {
   }
 
   render() {
-    let { albums, paginatedAlbum, tracks, paginatedTrack } = this.state;
-    console.log(albums,"albums", paginatedAlbum, "paginatedAlbum")
+    let { albums, paginatedAlbum, tracks, paginatedTrack, loader } = this.state;
     return <div className="App-intro">
         <nav className="navbar navbar-light bg-light">
           <input className="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search" onChange={this.handleChange} />
         </nav>
         <div className="container-fluid">
+          {loader ? <Loader /> :
           <div className="row">
-            {this.state.display === "artist" && !!this.state.artist && this.state.artist.map(
-                ({ strArtist, idArtist, strArtistThumb = album }) => {
-                  return (
-                    <div className="card col-sm-6 col-md-4 col-xs-12">
-                      <img
-                        className="card-img-top"
-                        src={strArtistThumb}
-                        alt="artist"
-                      />
-                      <div className="card-body">
-                        <h5 className="card-title">{strArtist}</h5>
-                        <button
-                          className="btn btn-primary"
-                          onClick={this.handleAlbum.bind(
-                            this,
-                            idArtist,
-                            strArtist
-                          )}
-                        >
-                          View Albums
-                        </button>
+            {!this.state.display && <div className="col-sm-12 col-md-12 text-center">
+                Search Artist
+              </div>}
+            {this.state.display === "artist" && (!!this.state.artist ? this.state.artist.map(
+                  ({ strArtist, idArtist, strArtistThumb = album }) => {
+                    return (
+                      <div className="card col-sm-6 col-md-4 col-xs-12">
+                        <img
+                          className="card-img-top"
+                          src={strArtistThumb}
+                          alt="artist"
+                        />
+                        <div className="card-body">
+                          <h5 className="card-title">{strArtist}</h5>
+                          <button
+                            className="btn btn-primary"
+                            onClick={this.handleAlbum.bind(
+                              this,
+                              idArtist,
+                              strArtist
+                            )}
+                          >
+                            View Albums
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                }
-              )}
+                    );
+                  }
+                ) : <div className="col-sm-12 col-md-12 text-center">
+                  No Artist Found
+                </div>)}
           </div>
+          }
           <div>
             {(this.state.display === "album" || this.state.display === "track") && !!this.state.albums && <div>
                   {this.state.paginatedAlbum.map(
